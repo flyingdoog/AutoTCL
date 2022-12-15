@@ -138,8 +138,6 @@ def sliding_local_infoNCE(z1, z2, pooling='max', temperature=1.0, k=16, sliding 
     logits = -F.log_softmax(logits, dim=-1)
     loss = logits[:,0].mean()
 
-
-
     return loss
 
 
@@ -252,7 +250,7 @@ def global_infoNCE(z1, z2, pooling='max',temperature=1.0):
     # return instance_contrastive_loss(z1, z2)
     return InfoNCE(z1,z2,temperature)
 
-def InfoNCE(z1, z2, temperature=1.0):
+def InfoNCE_backup(z1, z2, temperature=1.0):
 
     batch_size = z1.size(0)
 
@@ -283,7 +281,80 @@ def InfoNCE(z1, z2, temperature=1.0):
 
     return loss
 
+def InfoNCE(z1, z2, temperature=1.0,l1out=False):
 
+    assert z1.shape[0] == z2.shape[0]
+
+    z1t = torch.nn.functional.normalize(z1,dim=2)
+    z2t = torch.nn.functional.normalize(z2,dim=2)
+
+    similarity_matrix = torch.matmul(z1t.squeeze(1), z2t.squeeze(1).T)
+
+    mask = torch.eye(z1.shape[0], dtype=torch.bool).cuda()
+
+    if not l1out:
+        positives = similarity_matrix[mask].view(mask.shape[0], -1)
+        negatives = similarity_matrix[~mask].view(mask.shape[0], mask.shape[1]-1)
+
+        logits = torch.cat([positives, negatives], dim=1)
+
+        logits = logits / temperature
+        logits = -F.log_softmax(logits, dim=-1)
+        loss = logits[:, 0].mean()
+    else:
+        positives = similarity_matrix[mask].view(mask.shape[0], -1)
+
+        negatives = similarity_matrix[~mask].view(mask.shape[0], mask.shape[1]-1)
+        exp_negatives = torch.exp(negatives)
+        sum_negs = torch.sum(exp_negatives, -1) + 1e-6
+
+        pos_exp = torch.exp(positives) + 1e-5
+        logits = torch.log(pos_exp/(sum_negs/(mask.shape[1]-1)))
+        loss = logits.mean()
+
+    return loss
+
+def infoNCE(z1, z2, pooling='max',temperature=1.0):
+    if pooling == 'max':
+        z1 = F.max_pool1d(z1.transpose(1, 2).contiguous(), kernel_size=z1.size(1)).transpose(1, 2)
+        z2 = F.max_pool1d(z2.transpose(1, 2).contiguous(), kernel_size=z2.size(1)).transpose(1, 2)
+    elif pooling == 'mean':
+        z1 = torch.unsqueeze(torch.mean(z1, 1), 1)
+        z2 = torch.unsqueeze(torch.mean(z2, 1), 1)
+
+    # return instance_contrastive_loss(z1, z2)
+    return InfoNCE(z1,z2,temperature)
+
+def l1Out(z1, z2, pooling='max',temperature=1.0):
+    if pooling == 'max':
+        z1 = F.max_pool1d(z1.transpose(1, 2).contiguous(), kernel_size=z1.size(1)).transpose(1, 2)
+        z2 = F.max_pool1d(z2.transpose(1, 2).contiguous(), kernel_size=z2.size(1)).transpose(1, 2)
+    elif pooling == 'mean':
+        z1 = torch.unsqueeze(torch.mean(z1, 1), 1)
+        z2 = torch.unsqueeze(torch.mean(z2, 1), 1)
+
+    # return instance_contrastive_loss(z1, z2)
+    return InfoNCE(z1,z2,temperature,True)
+
+def sim(z1, z2, pooling='max',temperature=1.0):
+    if pooling == 'max':
+        z1 = F.max_pool1d(z1.transpose(1, 2).contiguous(), kernel_size=z1.size(1)).transpose(1, 2)
+        z2 = F.max_pool1d(z2.transpose(1, 2).contiguous(), kernel_size=z2.size(1)).transpose(1, 2)
+    elif pooling == 'mean':
+        z1 = torch.unsqueeze(torch.mean(z1, 1), 1)
+        z2 = torch.unsqueeze(torch.mean(z2, 1), 1)
+
+    assert z1.shape[0] == z2.shape[0]
+
+    z1t = torch.nn.functional.normalize(z1, dim=2)
+    z2t = torch.nn.functional.normalize(z2, dim=2)
+
+    similarity_matrix = torch.matmul(z1t.squeeze(1), z2t.squeeze(1).T)
+
+    mask = torch.eye(z1.shape[0], dtype=torch.bool).cuda()
+    positives = similarity_matrix[mask].view(mask.shape[0], -1)
+    loss = positives[:, 0].mean()
+    return loss
 
 
 def instance_contrastive_loss(z1, z2):
