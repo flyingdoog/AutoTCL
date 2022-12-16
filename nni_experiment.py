@@ -3,7 +3,7 @@ from nni.experiment import Experiment
 search_space = {
     # "batch_size": {"_type":"choice", "_value": [32,64,128,256]},
     # "bias_init":{"_type":"loguniform","_value":[0.5,1.5]},
-    # "local_weight":{"_type":"loguniform","_value":[0.0001,0.1]},
+    "local_weight":{"_type":"loguniform","_value":[0.0001,0.1]},
     "lr":{"_type":"loguniform","_value":[0.00001,0.0015]},
     "meta_lr":{"_type":"loguniform","_value":[0.01,0.15]},
     # 'repr_dims':{"_type":"choice", "_value": [128,]}, # 32,64, 256,320

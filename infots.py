@@ -187,8 +187,8 @@ class InfoTS:
             cls_train_data, cls_train_labels, cls_test_data, cls_test_labels = valid_dataset
             cls_train_data,cls_train_dataset,cls_train_loader = self.get_dataloader(cls_train_data,shuffle=False,drop_last=False)
 
-        meta_optimizer = torch.optim.AdamW(self.augnet.parameters(), lr=self.meta_lr)
-        optimizer = torch.optim.AdamW(self._net.parameters(), lr=self.lr)
+        meta_optimizer = torch.optim.RAdam(self.augnet.parameters(), lr=self.meta_lr)
+        optimizer = torch.optim.RAdam(self._net.parameters(), lr=self.lr)
 
         self.t0 = 1.0
         self.t1 = 1.0
