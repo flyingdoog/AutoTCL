@@ -14,6 +14,8 @@ import nni
 log_count = 0
 
 def sigmoid(x):
+    if isinstance(x,torch.Tensor):
+        return 1 / (1 + torch.exp(-x))
     return 1 / (1 + np.exp(-x))
 
 class InfoTS:
@@ -23,7 +25,7 @@ class InfoTS:
         self,
         input_dims,
         output_dims=320,
-        hidden_dims=60,
+        hidden_dims=64,
         num_cls = 2,
         depth=10,
         device='cuda',
@@ -36,6 +38,7 @@ class InfoTS:
         aug_p1=0.2,
         eval_every_epoch = 20,
         used_augs = None,
+        bias_init = 0.5,
     ):
         ''' Initialize a TS2Vec model.
         
@@ -63,7 +66,7 @@ class InfoTS:
         
         self.augnet = TSEncoder(input_dims=input_dims, output_dims=1,
                                   hidden_dims=hidden_dims, depth=depth,
-                                  dropout=dropout,mask_mode=mask_mode).to(self.device)
+                                  dropout=dropout,mask_mode=mask_mode,bias_init=bias_init).to(self.device)
 
         self.net = torch.optim.swa_utils.AveragedModel(self._net)
         self.net.update_parameters(self._net)
@@ -97,25 +100,15 @@ class InfoTS:
         loader = DataLoader(dataset, batch_size=min(self.batch_size, len(dataset)),shuffle=shuffle, drop_last=drop_last)
         return data, dataset, loader
 
+    def get_features(self, x, n_epochs=-1):
 
-    def get_features(self,x,n_epochs=-1):
-#         if n_epochs==-1:
-#             t =1.0
-#         else:
-#             t = float(self.t0 * np.power(self.t1 / self.t0, (self.n_epochs+1) / n_epochs))
-
-        begin = time.time()
-        mask = sigmoid(self.augnet(x)) # T*1
-        ax =  mask*x # augmented x'
-        if torch.isnan(a1).any() or torch.isnan(x).any():
+        mask = torch.sigmoid(self.augnet(x))
+        ax = mask * x  # augmented x'
+        if torch.isnan(ax).any() or torch.isnan(x).any():
             exit(1)
-        begin = time.time()
-        out1 = self._net(x) # representation
-        out2 = self._net(ax) # representation of augmented x'
-        feedforward_time = ((time.time()-begin)*1000)
-
-        return out1,out2
-
+        out1 = self._net(x)  # representation
+        out2 = self._net(ax)  # representation of augmented x'
+        return x, ax, out1, out2
 
     # calculate mutual information MI(v,x)
     def MI(self, data_loader):
@@ -152,7 +145,9 @@ class InfoTS:
         return zvs,MI_vx_loss
 
     def fit(self, train_data, n_epochs=None, n_iters=None,task_type='classification' ,verbose=False,beta=1.0,\
-            valid_dataset=None, miverbose=None, split_number=8,meta_epoch=2,meta_beta=1.0,train_labels = None):
+            valid_dataset=None, miverbose=None, split_number=8,
+            meta_epoch=2,meta_beta=1.0,
+            train_labels = None,ratio_step=1,lcoal_weight=0.1):
         ''' Training the InfoTS model.
         
         Args:
@@ -179,27 +174,24 @@ class InfoTS:
 
         train_data,train_dataset,train_loader =  self.get_dataloader(train_data,shuffle=True,drop_last=True)
 
-        cls_optimizer  = None
+        # cls_optimizer  = None
+        # train_labels = TensorDataset(torch.arange(train_data.shape[0]).to(torch.long).cuda())
+        # cls_optimizer = torch.optim.AdamW(self.unsup_pred.parameters(), lr=self.cls_lr)
 
-        train_labels = TensorDataset(torch.arange(train_data.shape[0]).to(torch.long).cuda())
-        cls_optimizer = torch.optim.AdamW(self.unsup_pred.parameters(), lr=self.cls_lr)
-
-       
-        train_data_label = []
-        for i in range(len(train_dataset)):
-            train_data_label.append([train_dataset[i], train_labels[i]])
-        train_data_label_loader = DataLoader(train_data_label, batch_size=min(self.batch_size, len(train_dataset)), shuffle=True, drop_last=True)
+        # train_data_label = []
+        # for i in range(len(train_dataset)):
+        #     train_data_label.append([train_dataset[i], train_labels[i]])
+        # train_data_label_loader = DataLoader(train_data_label, batch_size=min(self.batch_size, len(train_dataset)), shuffle=True, drop_last=True)
 
         if task_type=='classification' and valid_dataset is not None:
             cls_train_data, cls_train_labels, cls_test_data, cls_test_labels = valid_dataset
             cls_train_data,cls_train_dataset,cls_train_loader = self.get_dataloader(cls_train_data,shuffle=False,drop_last=False)
 
-
         meta_optimizer = torch.optim.AdamW(self.augnet.parameters(), lr=self.meta_lr)
         optimizer = torch.optim.AdamW(self._net.parameters(), lr=self.lr)
 
-        self.t0 = 2.0
-        self.t1 = 0.1
+        self.t0 = 1.0
+        self.t1 = 1.0
 
         acc_log = []
         vy_log = []
@@ -244,11 +236,13 @@ class InfoTS:
                 nni.report_intermediate_result(mse + mae)
                 print(eval_res['ours'])
 
+        eval(True)
+
         while True:
             if n_epochs is not None and self.n_epochs >= n_epochs:
                 break
 
-            begin = time.time()
+            # begin = time.time()
 
 #             if (self.n_epochs + 1) % meta_epoch == 0:
 #                 # begin = time.time()
@@ -272,19 +266,35 @@ class InfoTS:
                     x = x[:, window_offset : window_offset + self.max_train_length]
                 x = x.to(self.device)
 
+                # optimizer.zero_grad()
+                # meta_optimizer.zero_grad()
+
+                x_,ax_,outx,outv = self.get_features(x)
+                if self.n_iters % ratio_step == 0 :
+                    meta_optimizer.zero_grad()
+                    aloss = -L1out(outx,outv,temperature=self.t0)
+                    aloss.backward()
+                    meta_optimizer.step()
+                    print("aug loss ",aloss.item())
+
+                # MI_vx_loss = -L1out(outv, outx)
+
+                # loss = global_infoNCE(outx, outv) + local_infoNCE(outx, outv, k=split_number)*beta
+                # loss.backward()
+                # optimizer.step()
+                
+                # MI_vx_loss.backward()
+                # meta_optimizer.step()
+
+                x_, ax_, outx, outv = self.get_features(x, n_epochs=n_epochs)
                 optimizer.zero_grad()
-                meta_optimizer.zero_grad()
-
-                outx,outv = self.get_features(x,n_epochs=n_epochs)
-                MI_vx_loss = -L1out(outv, outx) 
-
-                loss = global_infoNCE(outx, outv) + local_infoNCE(outx, outv, k=split_number)*beta
-                loss.backward()
+                local_loss = local_infoNCE(outx, outv)
+                loss = infoNCE(outx, outv, temperature=self.t1)
+                all_loss = loss + lcoal_weight * local_loss
+                all_loss.backward()
                 optimizer.step()
-                
-                MI_vx_loss.backward()
-                meta_optimizer.step()
-                
+                print("agree loss ", loss.item(), local_loss.item())
+
                 self.net.update_parameters(self._net)
                     
                 cum_loss += loss.item()
@@ -294,13 +304,13 @@ class InfoTS:
 
             self.n_epochs += 1
 
-            epoch_time = ((time.time() - begin) * 1000)
-            print('epoch_time', epoch_time)
+            # epoch_time = ((time.time() - begin) * 1000)
+            # print('epoch_time', epoch_time)
 
 
 
             if self.n_epochs%self.eval_every_epoch==0:
-                eval()
+                eval(True)
 
 
             if interrupted:

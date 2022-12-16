@@ -207,6 +207,7 @@ def L1out(z1, z2, pooling='max',temperature=1.0):
     batch_size = z1.size(0)
 
     features = torch.cat([z1, z2], dim=0).squeeze(1)  # 2B x T x C
+    features = torch.nn.functional.normalize(features,dim=1)
 
     labels = torch.cat([torch.arange(batch_size) for i in range(2)], dim=0)
     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()

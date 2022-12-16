@@ -5,11 +5,38 @@ import datetime
 import datautils
 from utils import init_dl_program,dict2class
 from infots import InfoTS as MetaInfoTS
-from baseline import InfoTS as baseInfoTS
+# from baseline import InfoTS as baseInfoTS
 import nni
 nni_params = nni.get_next_parameter()
 from models.augclass import *
 all_augs = [jitter(), scaling(), time_warp(), window_slice(), window_warp(),cutout(),subsequence()]
+
+# paras = {
+#     'dataset':'ETTh1', #electricity
+#     'archive':'forecast_csv_univar',
+#     'gpu':0,
+#     'seed':42,
+#     'max_threads':12,
+#     'log_file':'forecast_csv',
+#     'eval':True,
+#     'batch_size':128,
+#     'lr':0.001,
+#     'beta':0.5,
+#     'repr_dims':320,
+#     'max_train_length':2048,
+#     'iters':4000,
+#     'epochs':400,
+#     'dropout':0.1,
+#     'split_number':8,
+#     'label_ratio':1.0,
+#     'meta_beta':0.1,
+#     'aug':None,
+#     'aug_p1':0.7,
+#     'aug_p2':0.,
+#     'meta_lr':0.03,
+#     'supervised_meta':False,
+# }
+
 
 paras = {
     'dataset':'ETTh1', #electricity
@@ -20,12 +47,13 @@ paras = {
     'log_file':'forecast_csv',
     'eval':True,
     'batch_size':128,
-    'lr':0.001,
+    'lr':0.00005,
     'beta':0.5,
     'repr_dims':320,
+    'hidden_dims':64,
     'max_train_length':2048,
-    'iters':4000,
-    'epochs':400,
+    'iters':40000,
+    'epochs':1000,
     'dropout':0.1,
     'split_number':8,
     'label_ratio':1.0,
@@ -33,8 +61,13 @@ paras = {
     'aug':None,
     'aug_p1':0.7,
     'aug_p2':0.,
-    'meta_lr':0.03,
+    'meta_lr':0.1,
     'supervised_meta':False,
+    'depth':10,
+    'mask_mode':'mask_last',
+    'ratio_step':1,
+    'bias_init':1.0,
+    'local_weight':0.01,
 }
 
 parser = argparse.ArgumentParser()
@@ -71,12 +104,16 @@ config = dict(
     max_train_length=args.max_train_length,
     input_dims=train_data.shape[-1],
     device=device,
+    depth =  args.depth,
+    hidden_dims = args.hidden_dims,
     num_cls =  args.batch_size,
     dropout = args.dropout,
+    mask_mode = args.mask_mode,
+    bias_init = args.bias_init
 )
 
 t = time.time()
-
+'''
 model = baseInfoTS(
     aug = args.aug,
     aug_p1= args.aug_p1,
@@ -85,10 +122,10 @@ model = baseInfoTS(
 '''
 model = MetaInfoTS(
     aug_p1= args.aug_p1,
-    eval_every_epoch =1,
+    eval_every_epoch =5,
     **config
 )
-'''
+
 
 res = model.fit(train_data,
      task_type = task_type,
@@ -99,20 +136,14 @@ res = model.fit(train_data,
      verbose=False,
      miverbose=True,
      split_number=args.split_number,
-     supervised_meta = args.supervised_meta if task_type == 'classification' else False, # for forecasting, use unsupervised setting.
      valid_dataset = valid_dataset,
-     train_labels= None
+     train_labels= None,
+    ratio_step= args.ratio_step,
+    lcoal_weight = args.local_weight
     )
 
-if task_type == 'classification':
-    loss_log, acc_log, vx_log, vy_log = res
-    acc = np.mean(acc_log[-1:])
-    vx_loss = np.mean(vx_log[-1:])
-    vy_loss = np.mean(vy_log[-1:])
-    mi_info = 'acc %.3f (max) vx %.3f (min) vy  %.3f' % (acc, vx_loss, vy_loss)
-else:
-    v,f, mse, mae = res
-    mi_info = 'v %.5f ,f %.5f,mse %.5f  mae%.5f' % (v,f,mse[-1], mae[-1])
+mse, mae = res
+mi_info = 'mse %.5f  mae%.5f' % (mse[-1], mae[-1])
 
 print(mi_info)
 
