@@ -53,7 +53,7 @@ paras = {
     'hidden_dims':64,
     'max_train_length':2048,
     'iters':40000,
-    'epochs':1000,
+    'epochs':400,
     'dropout':0.1,
     'split_number':8,
     'label_ratio':1.0,
