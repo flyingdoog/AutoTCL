@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import torch
 import pandas as pd
@@ -146,6 +147,15 @@ def _get_time_features(dt):
         dt.weekofyear.to_numpy(),
     ], axis=1).astype(np.float)
 
+def load_forecast_csv_(dir,univar=False):
+    paths = glob.glob(dir+'/*-lora-features.csv')
+    for path in paths:
+        time = path.spit('/')[-1]
+        time = time.replace('-lora-features.csv','')
+        data = pd.read_csv(path, index_col='date', parse_dates=True)
+
+
+
 def load_forecast_csv(name, univar=False):
     data = pd.read_csv(f'datasets/forecast/{name}.csv', index_col='date', parse_dates=True)
     dt_embed = _get_time_features(data.index)
@@ -184,9 +194,11 @@ def load_forecast_csv(name, univar=False):
         dt_scaler = StandardScaler().fit(dt_embed[train_slice])
         dt_embed = np.expand_dims(dt_scaler.transform(dt_embed), 0)
         data = np.concatenate([np.repeat(dt_embed, data.shape[0], axis=0), data], axis=-1)
-    
-    if name in ('ETTh1', 'ETTh2', 'electricity'):
-        pred_lens = [24, 48, 168, 336]
+
+    if name in ('ETTh1', 'ETTh2'):
+        pred_lens = [24, 48, 168, 336, 720]
+    elif name in ('electricity'):
+        pred_lens = [24, 48, 168, 336, 720]
     else:
         pred_lens = [24, 48, 96, 288, 672]
         

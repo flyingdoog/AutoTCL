@@ -7,6 +7,7 @@ from utils import init_dl_program,dict2class
 from infots import InfoTS as MetaInfoTS
 # from baseline import InfoTS as baseInfoTS
 import nni
+from nni.utils import merge_parameter
 nni_params = nni.get_next_parameter()
 from models.augclass import *
 all_augs = [jitter(), scaling(), time_warp(), window_slice(), window_warp(),cutout(),subsequence()]
@@ -46,18 +47,18 @@ paras = {
     'max_threads':12,
     'log_file':'forecast_csv',
     'eval':True,
-    'batch_size':128,
+    'batch_size':32,
     'lr':0.00005,
     'beta':0.5,
-    'repr_dims':320,
+    'repr_dims':128,
     'hidden_dims':64,
-    'max_train_length':2048,
+    'max_train_length':256,
     'iters':40000,
     'epochs':400,
     'dropout':0.1,
     'split_number':8,
     'label_ratio':1.0,
-    'meta_beta':0.1,
+    'meta_beta':0.15,
     'aug':None,
     'aug_p1':0.7,
     'aug_p2':0.,
@@ -67,9 +68,10 @@ paras = {
     'mask_mode':'mask_last',
     'ratio_step':1,
     'bias_init':1.0,
-    'local_weight':0.01,
+    'local_weight':0.0,
 }
 
+params = merge_parameter(paras, nni_params)
 parser = argparse.ArgumentParser()
 args = dict2class(**paras)
 

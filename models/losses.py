@@ -143,6 +143,7 @@ def sliding_local_infoNCE(z1, z2, pooling='max', temperature=1.0, k=16, sliding 
 
 def local_infoNCE(z1, z2, pooling='max',temperature=1.0, k = 16):
     #   z1, z2    B X T X D
+    z1 = torch.nn.functional.normalize(z1,dim=2)
     B = z1.size(0)
     T = z1.size(1)
     D = z1.size(2)

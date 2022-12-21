@@ -310,6 +310,7 @@ class InfoTS:
 
 
             if self.n_epochs%self.eval_every_epoch==0:
+                print("epoch ",self.n_epochs)
                 eval(True)
 
 
