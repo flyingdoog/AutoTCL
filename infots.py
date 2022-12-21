@@ -253,6 +253,7 @@ class InfoTS:
 
             interrupted = False
             self._net.train()
+            self.augnet.train()
 
 
             for batch in train_loader:

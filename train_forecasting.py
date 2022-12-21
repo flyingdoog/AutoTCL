@@ -40,7 +40,7 @@ all_augs = [jitter(), scaling(), time_warp(), window_slice(), window_warp(),cuto
 
 
 paras = {
-    'dataset':'ETTh1', #electricity ETTh1 lora
+    'dataset':'ETTh1',  #electricity ETTh1 lora
     'archive':'forecast_csv_univar',
     'gpu':0,
     'seed':42,
