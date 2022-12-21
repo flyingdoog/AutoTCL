@@ -147,13 +147,58 @@ def _get_time_features(dt):
         dt.weekofyear.to_numpy(),
     ], axis=1).astype(np.float)
 
-def load_forecast_csv_(dir,univar=False):
-    paths = glob.glob(dir+'/*-lora-features.csv')
+def load_forecast_csv_(single_batch=False):
+    paths = glob.glob('datasets/forecast/*-lora-features.csv')
+    all_dt_embed = []
+    all_data_feat = []
+    length_lists = []
     for path in paths:
-        time = path.spit('/')[-1]
-        time = time.replace('-lora-features.csv','')
-        data = pd.read_csv(path, index_col='date', parse_dates=True)
+        # time = path.spit('/')[-1]
+        # time = time.replace('-lora-features.csv','')
+        data = pd.read_csv(path, index_col=0, parse_dates=True)
+        dt_embed = _get_time_features(data.index)
+        all_dt_embed.append(dt_embed)
+        # feature
+        feat = data[['tts']].to_numpy()
+        all_data_feat.append(feat)
+        length_lists.append(feat.shape[0])
 
+    all_dt_embed = np.concatenate(all_dt_embed,axis=0)
+    all_data_feat = np.concatenate(all_data_feat,axis=0)
+
+    scaler = StandardScaler().fit(all_data_feat)
+    all_data_feat = scaler.transform(all_data_feat)
+
+    n_covariate_cols = all_dt_embed.shape[-1]
+    if n_covariate_cols > 0:
+        dt_scaler = StandardScaler().fit(all_dt_embed)
+        all_dt_embed = dt_scaler.transform(all_dt_embed)
+
+
+    if single_batch:
+        train_slice = slice(None, int(0.6 * len(all_data_feat)))
+        valid_slice = slice(int(0.6 * len(all_data_feat)), int(0.8 * len(all_data_feat)))
+        test_slice = slice(int(0.8 * len(all_data_feat)), None)
+        all_dt_embed = np.expand_dims(all_dt_embed,axis=0)
+        all_data_feat = np.expand_dims(all_data_feat, 0)
+        data = np.concatenate([np.repeat(all_dt_embed, all_data_feat.shape[0], axis=0), all_data_feat], axis=-1)
+    else:
+        max_length = max(length_lists)
+        train_slice = slice(None, int(0.6 * max_length))
+        valid_slice = slice(int(0.6 * max_length), int(0.8 * max_length))
+        test_slice = slice(int(0.8 * max_length), None)
+        data = np.zeros([len(length_lists),max_length,all_data_feat.shape[-1]+all_dt_embed.shape[-1]])
+
+        sum = 0
+        for idx,l in enumerate(length_lists):
+            data[idx,:l,:all_dt_embed.shape[-1]] = all_dt_embed[sum:sum+l,:]
+            data[idx,:l,all_dt_embed.shape[-1]:] = all_data_feat[sum:sum+l,:]
+            sum += l
+
+    pred_lens = [24, 48, 168, 336, 720]
+    # pred_lens = [24, 48, 96, 288, 672]
+
+    return data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols
 
 
 def load_forecast_csv(name, univar=False):

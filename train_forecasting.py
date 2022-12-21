@@ -40,7 +40,7 @@ all_augs = [jitter(), scaling(), time_warp(), window_slice(), window_warp(),cuto
 
 
 paras = {
-    'dataset':'ETTh1', #electricity
+    'dataset':'ETTh1', #electricity ETTh1 lora
     'archive':'forecast_csv_univar',
     'gpu':0,
     'seed':42,
@@ -77,6 +77,11 @@ args = dict2class(**paras)
 
 
 device = init_dl_program(args.gpu, seed=args.seed, max_threads=args.max_threads)
+
+if args.dataset == "lora":
+    task_type = 'forecasting'
+    data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv_(True)
+    train_data = data[:, train_slice]
 
 if args.archive == 'forecast_csv':
     task_type = 'forecasting'
