@@ -50,7 +50,7 @@ paras = {
     'batch_size':32,
     'lr':0.00005,
     'beta':0.5,
-    'repr_dims':128,
+    'repr_dims':320,
     'hidden_dims':64,
     'max_train_length':256,
     'iters':40000,
@@ -62,13 +62,15 @@ paras = {
     'aug':None,
     'aug_p1':0.7,
     'aug_p2':0.,
-    'meta_lr':0.1,
+    'meta_lr':0.015,
     'supervised_meta':False,
     'depth':10,
+    'aug_depth':3,
     'mask_mode':'mask_last',
     'ratio_step':1,
-    'bias_init':1.0,
+    'bias_init':0.0,
     'local_weight':0.0,
+    'reg_weight':0.001,
 }
 
 params = merge_parameter(paras, nni_params)
@@ -87,6 +89,7 @@ if args.archive == 'forecast_csv':
     task_type = 'forecasting'
     data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv(args.dataset)
     train_data = data[:, train_slice]
+
 elif args.archive == 'forecast_csv_univar':
     task_type = 'forecasting'
     data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv(args.dataset, univar=True)
@@ -120,6 +123,7 @@ config = dict(
 )
 
 t = time.time()
+
 '''
 model = baseInfoTS(
     aug = args.aug,
@@ -127,6 +131,7 @@ model = baseInfoTS(
     **config
 )
 '''
+
 model = MetaInfoTS(
     aug_p1= args.aug_p1,
     eval_every_epoch =5,
@@ -146,7 +151,8 @@ res = model.fit(train_data,
      valid_dataset = valid_dataset,
      train_labels= None,
     ratio_step= args.ratio_step,
-    lcoal_weight = args.local_weight
+    lcoal_weight = args.local_weight,
+    reg_weight = args.reg_weight
     )
 
 mse, mae = res

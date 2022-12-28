@@ -28,6 +28,7 @@ class InfoTS:
         hidden_dims=64,
         num_cls = 2,
         depth=10,
+        aug_depth=3,
         device='cuda',
         lr=0.001,
         meta_lr = 0.01,
@@ -65,7 +66,7 @@ class InfoTS:
         
         
         self.augnet = TSEncoder(input_dims=input_dims, output_dims=1,
-                                  hidden_dims=hidden_dims, depth=depth,
+                                  hidden_dims=hidden_dims, depth=aug_depth,
                                   dropout=dropout,mask_mode=mask_mode,bias_init=bias_init).to(self.device)
 
         self.net = torch.optim.swa_utils.AveragedModel(self._net)
@@ -100,15 +101,37 @@ class InfoTS:
         loader = DataLoader(dataset, batch_size=min(self.batch_size, len(dataset)),shuffle=shuffle, drop_last=drop_last)
         return data, dataset, loader
 
-    def get_features(self, x, n_epochs=-1):
+    def _sample_graph(self, sampling_weights, temperature=1.0, bias=0.0, training=True):
+        """
+        Implementation of the reparamerization trick to obtain a sample graph while maintaining the posibility to backprop.
+        :param sampling_weights: Weights provided by the mlp
+        :param temperature: annealing temperature to make the procedure more deterministic
+        :param bias: Bias on the weights to make samplign less deterministic
+        :param training: If set to false, the samplign will be entirely deterministic
+        :return: sample graph
+        """
+        if training:
+            bias = bias + 0.0001  # If bias is 0, we run into problems
+            eps = (bias - (1 - bias)) * torch.rand(sampling_weights.size()).to(sampling_weights.device) + (1 - bias)
+            gate_inputs = torch.log(eps) - torch.log(1 - eps)
+            gate_inputs = (gate_inputs + sampling_weights) / temperature
+            graph = torch.sigmoid(gate_inputs)
+        else:
+            graph = torch.sigmoid(sampling_weights)
+        return graph
 
-        mask = torch.sigmoid(self.augnet(x))
+
+    def get_features(self, x, training = True, n_epochs=-1):
+
+        weight = self.augnet(x)
+        mask = self._sample_graph(weight,training= training)
+
         ax = mask * x  # augmented x'
         if torch.isnan(ax).any() or torch.isnan(x).any():
             exit(1)
         out1 = self._net(x)  # representation
         out2 = self._net(ax)  # representation of augmented x'
-        return x, ax, out1, out2
+        return x, ax, out1, out2, mask
 
     # calculate mutual information MI(v,x)
     def MI(self, data_loader):
@@ -147,7 +170,7 @@ class InfoTS:
     def fit(self, train_data, n_epochs=None, n_iters=None,task_type='classification' ,verbose=False,beta=1.0,\
             valid_dataset=None, miverbose=None, split_number=8,
             meta_epoch=2,meta_beta=1.0,
-            train_labels = None,ratio_step=1,lcoal_weight=0.1):
+            train_labels = None,ratio_step=1,lcoal_weight=0.1,reg_weight = 0.001):
         ''' Training the InfoTS model.
         
         Args:
@@ -270,13 +293,15 @@ class InfoTS:
                 # optimizer.zero_grad()
                 # meta_optimizer.zero_grad()
 
-                x_,ax_,outx,outv = self.get_features(x)
+                x_,ax_,outx,outv,mask = self.get_features(x)
                 if self.n_iters % ratio_step == 0 :
                     meta_optimizer.zero_grad()
-                    aloss = -L1out(outx,outv,temperature=self.t0)
+                    l1out_loss = -L1out(outx,outv,temperature=self.t0)
+                    reg_loss = torch.sum(mask,dim=-1).mean()
+                    aloss = l1out_loss + reg_weight* reg_loss
                     aloss.backward()
                     meta_optimizer.step()
-                    print("aug loss ",aloss.item())
+                    print("aug loss ",l1out_loss.item(),reg_loss.item())
 
                 # MI_vx_loss = -L1out(outv, outx)
 
@@ -287,7 +312,7 @@ class InfoTS:
                 # MI_vx_loss.backward()
                 # meta_optimizer.step()
 
-                x_, ax_, outx, outv = self.get_features(x, n_epochs=n_epochs)
+                x_, ax_, outx, outv, mask = self.get_features(x, n_epochs=n_epochs)
                 optimizer.zero_grad()
                 local_loss = local_infoNCE(outx, outv)
                 loss = infoNCE(outx, outv, temperature=self.t1)
