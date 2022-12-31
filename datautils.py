@@ -200,7 +200,7 @@ def load_forecast_csv_(single_batch=False):
 
     return data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols
 
-def load_forecast_csv_lora(dataset_name,time_embedding_cols,forecast_col):
+def load_forecast_csv_lora(dataset_name,time_embedding_cols,forecast_cols):
     paths = glob.glob('datasets/forecast/%s.csv'%dataset_name)
     all_dt_embed = []
     all_data_feat = []
@@ -213,12 +213,14 @@ def load_forecast_csv_lora(dataset_name,time_embedding_cols,forecast_col):
         dt_embed = np.stack(time_embeddings,axis=1).astype(np.float)
         all_dt_embed.append(dt_embed)
         # feature
-        feat = data[[forecast_col]].to_numpy()
+        feat = [data[[col]].to_numpy() for col in forecast_cols]
+        # feat = data[[forecast_col]].to_numpy()
+        feat = np.stack(feat, axis=1).astype(np.float)
         all_data_feat.append(feat)
         length_lists.append(feat.shape[0])
 
-    all_dt_embed = np.concatenate(all_dt_embed,axis=0)
-    all_data_feat = np.concatenate(all_data_feat,axis=0)
+    all_dt_embed = np.stack(all_dt_embed,axis=0).squeeze()
+    all_data_feat = np.stack(all_data_feat,axis=0).squeeze()
 
     scaler = StandardScaler().fit(all_data_feat)
     all_data_feat = scaler.transform(all_data_feat)

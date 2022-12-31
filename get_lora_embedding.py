@@ -13,25 +13,28 @@ from models.augclass import *
 all_augs = [jitter(), scaling(), time_warp(), window_slice(), window_warp(),cutout(),subsequence()]
 
 
-def main(args):
-    params = dict2class(**args)
+def main(params):
+    # params = dict2class(**args)
 
     device = init_dl_program(params.gpu, seed=params.seed, max_threads=params.max_threads)
 
     task_type = 'forecasting'
-    data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv_lora(True)
+    data, train_slice, valid_slice, test_slice, \
+    scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv_lora(params.dataset,
+                                            params.time_cols,
+                                            params.forecast_cols)
     train_data = data[:, train_slice]
 
 
     # valid_dataset = (data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols)
 
     if train_data.shape[0] == 1:
-        train_slice_number = int(train_data.shape[1] / args.max_train_length)
-        if train_slice_number < args.batch_size:
-            args.batch_size = train_slice_number
+        train_slice_number = int(train_data.shape[1] / params.max_train_length)
+        if train_slice_number < params.batch_size:
+            params.batch_size = train_slice_number
     else:
-        if train_data.shape[0] < args.batch_size:
-            args.batch_size = train_data.shape[0]
+        if train_data.shape[0] < params.batch_size:
+            params.batch_size = train_data.shape[0]
 
     config = dict(
         batch_size=params.batch_size,
@@ -56,18 +59,14 @@ def main(args):
 
     res = model.fit(train_data,
                     task_type=task_type,
-                    meta_beta=args.meta_beta,
-                    n_epochs=args.epochs,
-                    n_iters=args.iters,
-                    beta=args.beta,
+                    n_epochs=params.epochs,
+                    n_iters=params.iters,
                     verbose=False,
                     miverbose=True,
-                    split_number=args.split_number,
                     valid_dataset=None,
                     train_labels=None,
-                    ratio_step=args.ratio_step,
-                    lcoal_weight=args.local_weight,
-                    reg_weight=args.reg_weight
+                    lcoal_weight=params.local_weight,
+                    reg_weight=params.reg_weight
                     )
     padding = 200
     embedding = model.casual_encode(train_data,sliding_length=1,sliding_padding=padding,batch_size=256)
@@ -79,9 +78,15 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='20221112-lora-features', # required=True,
                         help='dataset name')
+    parser.add_argument('--mask_mode', type=str, default='mask_last', # required=True,
+                        help='mask mode')
 
-    parser.add_argument('--time_cols', type=str, default='',  # required=True,
+    parser.add_argument('--time_cols', type=str, default='gw1-lp-PRR1,gw2-lp-PRR1,gw2-lp-PRR2,gw1-lp-BER1,gw1-lp-BER2,gw2-lp-BER1,gw1-lp-RSSI2',  # required=True,
                         help='time embedding cols')
+    parser.add_argument('--forecast_cols', type=str,
+                        default='WS-temper,WS-humidity,WS-wind-speed',
+                        # required=True,
+                        help='forecast embedding cols')
 
     parser.add_argument('--gpu', type=int, default=0,  # required=True,
                         help='device')
@@ -95,8 +100,10 @@ if __name__=="__main__":
                         help='embedding dims')
     parser.add_argument('--hidden_dims', type=int, default=64,  # required=True,
                         help='hidden dims')
-    parser.add_argument('--max_train_length', type=int, default=2048,  # required=True,
+    parser.add_argument('--max_train_length', type=int, default=256,  # required=True,
                         help='train length')
+    parser.add_argument('--iters', type=int, default=4000,  # required=True,
+                        help='train iters')
     parser.add_argument('--epochs', type=int, default=400,  # required=True,
                         help='train epochs')
     parser.add_argument('--depth', type=int, default=10,  # required=True,
@@ -119,6 +126,10 @@ if __name__=="__main__":
                         help='local infoNCE weight')
 
     args = parser.parse_args()
+    # forecast_cols = args.forecast_cols.split(',')
+    # time_cols = args.time_cols.split(',')
+    args.forecast_cols = args.forecast_cols.split(',')
+    args.time_cols = args.time_cols.split(',')
 
     main(args)
 
