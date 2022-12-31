@@ -191,6 +191,8 @@ class InfoTS:
         # check the input formation
         assert train_data.ndim == 3
 
+        do_valid = False if valid_dataset is None else True
+
         # default param for n_iters
         if n_iters is None and n_epochs is None:
             n_iters = 200 if train_data.size <= 100000 else 600
@@ -259,7 +261,8 @@ class InfoTS:
                 nni.report_intermediate_result(mse + mae)
                 print(eval_res['ours'])
 
-        eval(True)
+        if do_valid:
+            eval(True)
 
         while True:
             if n_epochs is not None and self.n_epochs >= n_epochs:
@@ -337,7 +340,8 @@ class InfoTS:
 
             if self.n_epochs%self.eval_every_epoch==0:
                 print("epoch ",self.n_epochs)
-                eval(True)
+                if do_valid:
+                    eval(True)
 
 
             if interrupted:
@@ -348,7 +352,9 @@ class InfoTS:
             if verbose:
                 print(f"Epoch #{self.n_epochs}: loss={cum_loss}")
                 print(self.aug._parameters)
-        eval(final=True)
+
+        if do_valid:
+            eval(True)
         if task_type == 'classification':
             return loss_log,acc_log,vx_log,vy_log
         else:

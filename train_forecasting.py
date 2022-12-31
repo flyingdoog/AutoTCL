@@ -48,7 +48,7 @@ paras = {
     'log_file':'forecast_csv',
     'eval':True,
     'batch_size':32,
-    'lr':0.00005,
+    'lr':0.0001,
     'beta':0.5,
     'repr_dims':320,
     'hidden_dims':64,
@@ -75,7 +75,7 @@ paras = {
 
 params = merge_parameter(paras, nni_params)
 parser = argparse.ArgumentParser()
-args = dict2class(**paras)
+args = dict2class(**params)
 
 
 device = init_dl_program(args.gpu, seed=args.seed, max_threads=args.max_threads)
