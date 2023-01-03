@@ -97,10 +97,13 @@ def init_dl_program(
         
     if seed is not None:
         random.seed(seed)
+        print("SEED ",seed)
         seed += 1
         np.random.seed(seed)
+        print("SEED ",seed)
         seed += 1
         torch.manual_seed(seed)
+        print("SEED ",seed)
         
     if isinstance(device_name, (str, int)):
         device_name = [device_name]
@@ -115,6 +118,8 @@ def init_dl_program(
             if seed is not None:
                 seed += 1
                 torch.cuda.manual_seed(seed)
+                print("SEED " , seed)
+
     devices.reverse()
     torch.backends.cudnn.enabled = use_cudnn
     torch.backends.cudnn.deterministic = deterministic

@@ -35,7 +35,9 @@ class InfoTS:
         batch_size=16,
         max_train_length=None,
         mask_mode = 'binomial',
+        augmask_mode = 'binomial',
         dropout = 0.1,
+        augdropout = 0.1,
         aug_p1=0.2,
         eval_every_epoch = 20,
         used_augs = None,
@@ -67,7 +69,7 @@ class InfoTS:
         
         self.augnet = TSEncoder(input_dims=input_dims, output_dims=1,
                                   hidden_dims=hidden_dims, depth=aug_depth,
-                                  dropout=dropout,mask_mode=mask_mode,bias_init=bias_init).to(self.device)
+                                  dropout=augdropout,mask_mode=augmask_mode,bias_init=bias_init).to(self.device)
 
         self.net = torch.optim.swa_utils.AveragedModel(self._net)
         self.net.update_parameters(self._net)
@@ -258,11 +260,15 @@ class InfoTS:
                 mae = sum([res[t]['norm']['MAE'] for t in res]) / len(res)
                 mses.append(mse)
                 maes.append(mae)
-                nni.report_intermediate_result(mse + mae)
+                if not final:
+                    nni.report_intermediate_result(mse + mae)
                 print(eval_res['ours'])
 
+                if mse + mae>0.25:
+                    exit(0)
+
         if do_valid:
-            eval(True)
+            eval()
 
         while True:
             if n_epochs is not None and self.n_epochs >= n_epochs:
@@ -336,12 +342,10 @@ class InfoTS:
             # epoch_time = ((time.time() - begin) * 1000)
             # print('epoch_time', epoch_time)
 
-
-
             if self.n_epochs%self.eval_every_epoch==0:
                 print("epoch ",self.n_epochs)
                 if do_valid:
-                    eval(True)
+                    eval()
 
 
             if interrupted:

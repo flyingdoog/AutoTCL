@@ -64,7 +64,7 @@ class TSEncoder(nn.Module):
                 mask = self.mask_mode
             else:
                 mask = 'all_true'
-        
+
         if mask == 'binomial':
             mask = generate_binomial_mask(x.size(0), x.size(1)).to(x.device)
         elif mask == 'continuous':

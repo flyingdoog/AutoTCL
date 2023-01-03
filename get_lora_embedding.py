@@ -48,7 +48,9 @@ def main(params):
         hidden_dims=params.hidden_dims,
         num_cls=params.batch_size,
         dropout=params.dropout,
+        augdropout = params.augdropout,
         mask_mode=params.mask_mode,
+        augmask_mode = args.augmask_mode,
         bias_init=params.bias_init
     )
 
@@ -78,9 +80,6 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='20221112-lora-features', # required=True,
                         help='dataset name')
-    parser.add_argument('--mask_mode', type=str, default='mask_last', # required=True,
-                        help='mask mode')
-
     parser.add_argument('--time_cols', type=str, default='gw1-lp-PRR1,gw2-lp-PRR1,gw2-lp-PRR2,gw1-lp-BER1,gw1-lp-BER2,gw2-lp-BER1,gw1-lp-RSSI2',  # required=True,
                         help='time embedding cols')
     parser.add_argument('--forecast_cols', type=str,
@@ -88,20 +87,38 @@ if __name__=="__main__":
                         # required=True,
                         help='forecast embedding cols')
 
-    parser.add_argument('--gpu', type=int, default=0,  # required=True,
-                        help='device')
-    parser.add_argument('--max_threads', type=int, default=12,  # required=True,
-                        help='max_threads')
-    parser.add_argument('--seed', type=int, default=42,  # required=True,
-                        help='seed')
     parser.add_argument('--batch_size', type=int, default=32,  # required=True,
                         help='batch size')
+
+    parser.add_argument('--lr', type=float, default=0.001,  # required=True,
+                        help='embedding net learning rate')
+    parser.add_argument('--meta_lr', type=float, default=0.1,  # required=True,
+                        help='seed')
+
+    parser.add_argument('--mask_mode', type=str, default='mask_last', # required=True,
+                        help='mask mode')
+    parser.add_argument('--augmask_mode', type=str, default='mask_last',  # required=True,
+                        help='mask mode')
+    parser.add_argument('--bias_init', type=float, default=0.0,  # required=True,
+                        help='bias init value')
+    parser.add_argument('--local_weight', type=float, default=0.0,  # required=True,
+                        help='local infoNCE weight')
+    parser.add_argument('--reg_weight', type=float, default=0.001,  # required=True,
+                        help='regulation weight')
+
+
+    parser.add_argument('--dropout', type=float, default=0.1,  # required=True,
+                        help='dropout rate')
+    parser.add_argument('--augdropout', type=float, default=0.1,  # required=True,
+                        help='dropout rate')
+
     parser.add_argument('--repr_dims', type=int, default=320,  # required=True,
                         help='embedding dims')
     parser.add_argument('--hidden_dims', type=int, default=64,  # required=True,
                         help='hidden dims')
     parser.add_argument('--max_train_length', type=int, default=256,  # required=True,
                         help='train length')
+
     parser.add_argument('--iters', type=int, default=4000,  # required=True,
                         help='train iters')
     parser.add_argument('--epochs', type=int, default=400,  # required=True,
@@ -111,19 +128,14 @@ if __name__=="__main__":
     parser.add_argument('--aug_depth', type=int, default=10,  # required=True,
                         help='augment layer depth')
 
-
-    parser.add_argument('--lr', type=float, default=0.001,  # required=True,
-                        help='embedding net learning rate')
-    parser.add_argument('--meta_lr', type=float, default=0.1,  # required=True,
+    parser.add_argument('--gpu', type=int, default=0,  # required=True,
+                        help='device')
+    parser.add_argument('--max_threads', type=int, default=12,  # required=True,
+                        help='max_threads')
+    parser.add_argument('--seed', type=int, default=42,  # required=True,
                         help='seed')
-    parser.add_argument('--dropout', type=float, default=0.1,  # required=True,
-                        help='dropout rate')
-    parser.add_argument('--bias_init', type=float, default=0.0,  # required=True,
-                        help='bias init value')
-    parser.add_argument('--reg_weight', type=float, default=0.001,  # required=True,
-                        help='regulation weight')
-    parser.add_argument('--local_weight', type=float, default=0.0,  # required=True,
-                        help='local infoNCE weight')
+
+
 
     args = parser.parse_args()
     # forecast_cols = args.forecast_cols.split(',')
