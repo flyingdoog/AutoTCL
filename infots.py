@@ -265,8 +265,8 @@ class InfoTS:
                 print(mse + mae)
                 print(eval_res['ours'])
 
-                if mse + mae>0.45:
-                    exit(0)
+                # if mse + mae>0.45:
+                #     exit(0)
 
         if do_valid:
             eval(True)
