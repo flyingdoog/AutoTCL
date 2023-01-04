@@ -79,6 +79,7 @@ paras = {
 }
 print(paras)
 print(nni_params)
+# nni_params={'aug_depth': 1, 'augdropout': 0.7, 'augmask_mode': 'mask_last', 'batch_size': 256, 'bias_init': 0.7665324544530884, 'depth': 10, 'dropout': 0.1, 'hidden_dims': 128, 'local_weight': 0.0018751384048818205, 'lr': 1.2539581624637082e-05, 'mask_mode': 'continuous', 'max_train_length': 2048, 'meta_lr': 0.0008853805314446084, 'reg_weight': 0.00014905036321207025, 'repr_dims': 256}
 params = merge_parameter(paras, nni_params)
 parser = argparse.ArgumentParser()
 args = dict2class(**params)
@@ -172,7 +173,3 @@ t = time.time() - t
 print(f"\nTraining time: {datetime.timedelta(seconds=t)}\n")
 print("Finished.")
 
-"""
-[2023-01-02 14:31:26] Intermediate result: 0.34414330377073016  (Index 31)
-{24: {'norm': {'MSE': 0.045450040395337885, 'MAE': 0.1630598702666799}}, 48: {'norm': {'MSE': 0.06417352425539677, 'MAE': 0.1946127266060023}}, 168: {'norm': {'MSE': 0.10921554904102836, 'MAE': 0.2511338113002432}}, 336: {'norm': {'MSE': 0.1275210139295191, 'MAE': 0.27528629140904715}}, 720: {'norm': {'MSE': 0.1632214911163294, 'MAE': 0.32704220053406674}}}
-"""

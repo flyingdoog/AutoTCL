@@ -260,15 +260,16 @@ class InfoTS:
                 mae = sum([res[t]['norm']['MAE'] for t in res]) / len(res)
                 mses.append(mse)
                 maes.append(mae)
-                if not final:
-                    nni.report_intermediate_result(mse + mae)
+                # if not final:
+                nni.report_intermediate_result(mse + mae)
+                print(mse + mae)
                 print(eval_res['ours'])
 
-                if mse + mae>0.25:
+                if mse + mae>0.45:
                     exit(0)
 
         if do_valid:
-            eval()
+            eval(True)
 
         while True:
             if n_epochs is not None and self.n_epochs >= n_epochs:
@@ -345,7 +346,7 @@ class InfoTS:
             if self.n_epochs%self.eval_every_epoch==0:
                 print("epoch ",self.n_epochs)
                 if do_valid:
-                    eval()
+                    eval(True)
 
 
             if interrupted:
