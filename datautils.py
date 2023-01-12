@@ -286,7 +286,7 @@ def load_forecast_csv(name, univar=False):
     if name in ('ETTh1', 'ETTh2'):
         pred_lens = [24, 48, 168, 336, 720]
     elif name in ('electricity'):
-        pred_lens = [24, 48, 168, 336, 720]
+        pred_lens = [24, 48, 168, 336]
     else:
         pred_lens = [24, 48, 96, 288, 672]
         
