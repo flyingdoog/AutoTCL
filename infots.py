@@ -42,6 +42,7 @@ class InfoTS:
         eval_every_epoch = 20,
         used_augs = None,
         bias_init = 0.5,
+        gamma_zeta = 0.05
     ):
         ''' Initialize a TS2Vec model.
         
@@ -78,7 +79,8 @@ class InfoTS:
         self.n_iters = 0
 
         self.meta_lr = meta_lr
-
+        self.gamma_zeta = -gamma_zeta
+        self.zeta = 1.0
         # contrarive between aug and original
         self.CE = torch.nn.CrossEntropyLoss()
         self.BCE = torch.nn.BCEWithLogitsLoss()
@@ -120,7 +122,14 @@ class InfoTS:
             graph = torch.sigmoid(gate_inputs)
         else:
             graph = torch.sigmoid(sampling_weights)
-        return graph
+
+        stretched_values = graph * (self.zeta - self.gamma_zeta) + self.gamma_zeta
+        cliped = torch.clip(
+            stretched_values,
+            max=1.0,
+            min=0.0)
+
+        return cliped
 
 
     def get_features(self, x, training = True, n_epochs=-1):
@@ -172,7 +181,8 @@ class InfoTS:
     def fit(self, train_data, n_epochs=None, n_iters=None,task_type='classification' ,verbose=False,beta=1.0,\
             valid_dataset=None, miverbose=None, split_number=8,
             meta_epoch=2,meta_beta=1.0,
-            train_labels = None,ratio_step=1,lcoal_weight=0.1,reg_weight = 0.001):
+            train_labels = None,ratio_step=1,lcoal_weight=0.1,reg_weight = 0.001
+            ,evalall =  False):
         ''' Training the InfoTS model.
         
         Args:
@@ -228,7 +238,7 @@ class InfoTS:
         mses = []
         maes = []
 
-        def eval(final=False):
+        def eval(final=False,s = True):
             self._net.eval()
             if task_type == 'classification':
                 out, eval_res = tasks.eval_classification(self, cls_train_data, cls_train_labels, cls_test_data,
@@ -253,23 +263,35 @@ class InfoTS:
                     valid_dataset_during_train = valid_dataset[0],valid_dataset[1],valid_dataset[2],valid_dataset[3],valid_dataset[4],[valid_dataset[5][0]],valid_dataset[6]
                     out, eval_res = tasks.eval_forecasting(self, *valid_dataset_during_train)
                 else:
-                    out, eval_res = tasks.eval_forecasting(self, *valid_dataset)
+                    if s :
+                        out, eval_res = tasks.eval_forecasting(self, *valid_dataset)
+                    else:
+                        valid_dataset_during_train = valid_dataset[0], valid_dataset[1], valid_dataset[2], \
+                                                     valid_dataset[3], valid_dataset[4], [valid_dataset[5][0]], \
+                                                     valid_dataset[6]
+                        out, eval_res = tasks.eval_forecasting(self, *valid_dataset_during_train)
 
                 res = eval_res['ours']
                 mse = sum([res[t]['norm']['MSE'] for t in res]) / len(res)
                 mae = sum([res[t]['norm']['MAE'] for t in res]) / len(res)
                 mses.append(mse)
                 maes.append(mae)
-                # if not final:
-                nni.report_intermediate_result(mse + mae)
+                if not final:
+                    nni.report_intermediate_result(mse + mae)
+                else:
+                    nni.report_final_result(mse + mae)
                 print(mse + mae)
                 print(eval_res['ours'])
-
-                # if mse + mae>0.45:
-                #     exit(0)
+                # ETTh1 0.25
+                # ETTh2 0.55
+                # ETTm1 0.3
+                # electricity 0.60
+                if mse + mae>0.25 and not final :
+                    nni.report_final_result(mse + mae + 1.0)
+                    exit(0)
 
         if do_valid:
-            eval(True)
+            eval( evalall)
 
         while True:
             if n_epochs is not None and self.n_epochs >= n_epochs:
@@ -346,7 +368,7 @@ class InfoTS:
             if self.n_epochs%self.eval_every_epoch==0:
                 print("epoch ",self.n_epochs)
                 if do_valid:
-                    eval(True)
+                    eval(evalall)
 
 
             if interrupted:
