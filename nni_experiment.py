@@ -11,16 +11,21 @@ search_space = {
     'local_weight':{"_type":"loguniform", "_value": [0.0001,1.0]},  # 0.72
     'reg_weight':{"_type":"loguniform", "_value": [0.0001,1.0]},
 
-    'dropout': {"_type": "choice", "_value": [0.1]},  # 0.1,0.6, ,0.2,0.3,0.4,0.5,0.7
-    'augdropout': {"_type": "choice", "_value": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]},  # 0.1,0.6, ,0.2,0.3,0.4,0.5,
+    #'dropout': {"_type": "choice", "_value": [0.1]},  # 0.1,0.6, ,0.2,0.3,0.4,0.5,0.7
+    #'augdropout': {"_type": "choice", "_value": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]},  # 0.1,0.6, ,0.2,0.3,0.4,0.5,
+
+    'dropout': {"_type": "loguniform", "_value": [0.01,1.0]},  # 0.1,0.6, ,0.2,0.3,0.4,0.5,0.7
+    'augdropout': {"_type": "loguniform", "_value": [0.01, 1.0]},  # 0.1,0.6, ,0.2,0.3,0.4,0.5,
+
 
     'repr_dims':{"_type":"choice", "_value": [320,256,128,64,512]}, # 32,64, 256,320
     'hidden_dims': {"_type": "choice", "_value": [256, 128, 64, 32, 16, 8]},  # 32,64, 256,320
     'max_train_length': {"_type": "choice", "_value": [2048, 256, 512, 1024]},  # 256,512,1024,1280,1536,
 
-    'depth': {"_type": "choice", "_value": [10]},  # 3,5,7,9,
-    'aug_depth':{"_type":"choice", "_value": [1]},  # 21
+    'depth': {"_type": "choice", "_value": [6,7,8,9,10]},  # 3,5,7,9,
+    'aug_depth':{"_type":"choice", "_value": [1,2,3,4,5]},  # 21
 
+    'gamma_zeta':{"_type":"loguniform", "_value": [0.0005,0.5]},  # 21
 
     # 'reg_weight':{"_type":"loguniform", "_value": [0.0001,1.0]},
     # 'local_weight':{"_type":"loguniform", "_value": [0.0001,1.0]},  # 0.72
@@ -29,6 +34,7 @@ search_space = {
 }
 experiment = Experiment('local')
 experiment.config.trial_command = 'python3 train_forecasting.py'
+experiment.config.experiment_working_directory='/media/aslan/50E4BE16E4BDFDF2/DATA/CODE/nniresult'
 experiment.config.trial_code_directory = '.'
 experiment.config.search_space = search_space
 experiment.config.tuner.name = 'SMAC'
