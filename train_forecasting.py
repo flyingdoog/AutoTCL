@@ -12,33 +12,6 @@ nni_params = nni.get_next_parameter()
 from models.augclass import *
 all_augs = [jitter(), scaling(), time_warp(), window_slice(), window_warp(),cutout(),subsequence()]
 
-# paras = {
-#     'dataset':'ETTh1', #electricity
-#     'archive':'forecast_csv_univar',
-#     'gpu':0,
-#     'seed':42,
-#     'max_threads':12,
-#     'log_file':'forecast_csv',
-#     'eval':True,
-#     'batch_size':128,
-#     'lr':0.001,
-#     'beta':0.5,
-#     'repr_dims':320,
-#     'max_train_length':2048,
-#     'iters':4000,
-#     'epochs':400,
-#     'dropout':0.1,
-#     'split_number':8,
-#     'label_ratio':1.0,
-#     'meta_beta':0.1,
-#     'aug':None,
-#     'aug_p1':0.7,
-#     'aug_p2':0.,
-#     'meta_lr':0.03,
-#     'supervised_meta':False,
-# }
-
-
 paras = {
     'dataset':'ETTh1',  #electricity ETTh1 lora
     'batch_size': 32,
@@ -57,7 +30,7 @@ paras = {
     'hidden_dims': 64,
     'max_train_length': 256,
     'iters': 40000,
-    'epochs': 150,
+    'epochs': 400,
     'depth': 10,
     'aug_depth': 1,
 
@@ -76,10 +49,14 @@ paras = {
     'aug_p2':0.,
     'supervised_meta':False,
     'ratio_step':1,
+    'gamma_zeta':0.005,
 }
 print(paras)
 print(nni_params)
-# nni_params={'aug_depth': 1, 'augdropout': 0.7, 'augmask_mode': 'mask_last', 'batch_size': 256, 'bias_init': 0.7665324544530884, 'depth': 10, 'dropout': 0.1, 'hidden_dims': 128, 'local_weight': 0.0018751384048818205, 'lr': 1.2539581624637082e-05, 'mask_mode': 'continuous', 'max_train_length': 2048, 'meta_lr': 0.0008853805314446084, 'reg_weight': 0.00014905036321207025, 'repr_dims': 256}
+# nni_params={'aug_depth': 1, 'augdropout': 0.4, 'augmask_mode': 'mask_last', 'batch_size': 128,
+# 'bias_init': 0.2450533837982518, 'depth': 10, 'dropout': 0.1, 'hidden_dims': 128,
+# 'local_weight': 0.003183648974376273, 'lr': 2.1231938441299486e-05, 'mask_mode': 'all_true',
+# 'max_train_length': 256, 'meta_lr': 0.005769119414927489, 'reg_weight': 0.19205758994985575, 'repr_dims': 320}
 params = merge_parameter(paras, nni_params)
 parser = argparse.ArgumentParser()
 args = dict2class(**params)
@@ -92,7 +69,7 @@ if args.dataset == "lora":
     data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv_(True)
     train_data = data[:, train_slice]
 
-if args.archive == 'forecast_csv':
+elif args.archive == 'forecast_csv':
     task_type = 'forecasting'
     data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols = datautils.load_forecast_csv(args.dataset)
     train_data = data[:, train_slice]
@@ -128,7 +105,8 @@ config = dict(
     augdropout = args.augdropout,
     mask_mode = args.mask_mode,
     augmask_mode = args.augmask_mode,
-    bias_init = args.bias_init
+    bias_init = args.bias_init,
+    gamma_zeta = args.gamma_zeta
 )
 
 t = time.time()
@@ -143,7 +121,7 @@ model = baseInfoTS(
 
 model = MetaInfoTS(
     aug_p1= args.aug_p1,
-    eval_every_epoch =5,
+    eval_every_epoch =20,
     **config
 )
 
